@@ -3,6 +3,11 @@ on:
   schedule:
     - cron: "37 3 * * *"   # каждый день 06:37 по Москве
   workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - hs.py
+      - .github/workflows/heroes.yml
 permissions:
   contents: write
 jobs:
