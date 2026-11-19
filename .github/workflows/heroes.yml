@@ -1,7 +1,7 @@
 name: heroes-daily
 on:
   schedule:
-    - cron: "37 3 * * *"   # каждый день 06:37 по Москве
+    - cron: "37 3,15 * * *"   # 06:37 и 18:37 по Москве: STRATZ выкладывает прошедшие сутки с задержкой
   workflow_dispatch: {}
   push:
     branches: [main]
