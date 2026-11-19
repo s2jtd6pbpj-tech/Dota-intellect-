@@ -28,7 +28,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 #tabs{display:flex;flex:0 0 auto;background:#0a0e18;border-top:1px solid #1d2638;position:relative;z-index:60}
 .tab{flex:1;background:none;border:0;color:#7f8aa3;padding:7px 2px 6px;font:inherit;font-size:11px;touch-action:manipulation}.tab i{display:block;font-style:normal;font-size:20px;line-height:1.1}.tab.on{color:#ffcf6a}
 .ov{position:fixed;left:0;right:0;top:0;bottom:var(--navh,58px);z-index:40;display:none;overflow:auto;-webkit-user-select:none;user-select:none}.ov.on{display:block}
-.ov.on{animation:ovIn .22s ease-out both}.ov.on .pg,.ov.on #hm .xw{animation:pgIn .34s cubic-bezier(.2,.8,.2,1) both}@keyframes ovIn{from{opacity:0}to{opacity:1}}@keyframes pgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.ov.on,.ov.on .pg,.ov.on #hm .xw{animation:none}}
+.ov.on .pg,.ov.on #hm .xw{animation:pgIn .34s cubic-bezier(.2,.8,.2,1) both}@keyframes ovIn{from{opacity:0}to{opacity:1}}@keyframes pgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.ov.on .pg,.ov.on #hm .xw{animation:none}}
 #vHome{background:radial-gradient(60% 28% at 50% 66%,rgba(255,125,45,.40),transparent 72%),radial-gradient(120% 72% at 50% 26%,#43206b 0%,#1b1445 40%,#0a0d20 72%,#05070f 100%);overflow:hidden}
 .star{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.7;animation:tw 3s infinite ease-in-out}@keyframes tw{50%{opacity:.1}}
 .ttl{position:absolute;left:0;right:0;top:6%;text-align:center;padding:0 16px;z-index:3}
@@ -65,7 +65,6 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .shok{width:100%;margin:18px 0 0;padding:13px;border:0;border-radius:12px;background:#ffcf6a;color:#2a1d05;font:inherit;font-weight:800;font-size:15px}
 #mapSh .shb button.mb{display:flex;width:100%;justify-content:space-between;align-items:center;margin:0 0 6px;padding:12px;border-radius:10px;border:1px solid #2b3a57;background:#101828;color:#e8ecf5;font:inherit;font-size:14px;text-align:left}
 #mapSh .shb button.mb.on{border-color:#ffcf6a;color:#ffcf6a}
-body.norot #bRL,body.norot #bRR,body.norot #bTU,body.norot #bTD{display:none}
 #hint{transition:opacity .4s}#hint.gone{opacity:0;pointer-events:none}
 @media (prefers-reduced-motion:reduce){.bsh.on,.shb{animation:none}}
 </style><style>#hm .xR{transform-origin:50% 100%;animation:rBreath 5s ease-in-out infinite}@keyframes rBreath{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.025) translateY(-.6%)}}#hm .xR::before{content:"";position:absolute;left:54%;top:25.3%;width:9%;aspect-ratio:1;margin:-4.5% 0 0 -4.5%;border-radius:50%;background:radial-gradient(circle,#fff 0,#ffd27a 22%,#ff5a1f 52%,rgba(255,60,20,0) 72%);mix-blend-mode:screen;animation:rEye 5s ease-in-out infinite}@keyframes rEye{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.25)}}#hm .xR::after{content:"";position:absolute;left:54%;top:36.5%;width:12%;aspect-ratio:1;margin:-6% 0 0 -6%;border-radius:50%;border:3px solid rgba(255,190,110,.8);opacity:0;animation:rWave 5s ease-out infinite 2.4s}@keyframes rWave{0%{opacity:.85;transform:scale(.3)}60%{opacity:0;transform:scale(7)}100%{opacity:0;transform:scale(7)}}@media (prefers-reduced-motion:reduce){#hm .xR,#hm .xR::before,#hm .xR::after{animation:none}}</style></head><body>
@@ -569,10 +568,7 @@ function txt(sel,root){return [].map.call(root.querySelectorAll(sel),function(x)
  var S=sheet("mapSh","Настройки карты"),C=S.querySelector(".shc");
  var groups=[["Вид",["bView","bTex","bTV","bEdge"]],["Управление",["bMode"]],["Деревья",["bCut","bReset"]]];
  var bv=document.getElementById("bView");if(bv)bv.textContent="Сменить ракурс камеры";groups.forEach(function(g){C.appendChild(lbl(g[0]));g[1].forEach(function(id){var b=document.getElementById(id);if(b){b.classList.add("mb");C.appendChild(b);}});});
- var rot=document.createElement("button");rot.className="mb";rot.type="button";C.appendChild(lbl("Кнопки на карте"));C.appendChild(rot);
- var on=true;try{on=localStorage.getItem("ui:rot")!=="0";}catch(e){}
- function setRot(v){on=v;document.body.classList.toggle("norot",!on);rot.textContent="Поворот и наклон: "+(on?"вкл":"выкл");rot.classList.toggle("on",on);try{localStorage.setItem("ui:rot",on?"1":"0");}catch(e){}}
- rot.onclick=function(){setRot(!on);};setRot(on);
+ document.body.classList.remove("norot");
  
  var g=document.createElement("button");g.id="bSet";g.type="button";g.textContent="⚙ Настройки";F.insertBefore(g,F.firstChild);g.onclick=function(){S.classList.add("on");};
  var h=document.getElementById("hint");if(h){h.textContent="Нажмите на карту, чтобы поставить вард. Двумя пальцами — масштаб и поворот.";var hide=function(){h.classList.add("gone");};setTimeout(hide,6000);var cvv=document.getElementById("cv");if(cvv)cvv.addEventListener("pointerdown",hide,{once:true});}
