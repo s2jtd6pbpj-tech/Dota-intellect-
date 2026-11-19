@@ -515,7 +515,7 @@ function listBan(){var al=team(my),es=team(en),ex=used(),ban=D.h.map(function(h)
 
 function dToast(t){var x=document.getElementById("dToast");if(!x){x=document.createElement("div");x.id="dToast";x.style.cssText="position:fixed;left:50%;bottom:calc(var(--navh,58px) + 14px);transform:translateX(-50%);z-index:400;background:#1c2740;color:#fff;padding:10px 14px;border-radius:12px;font-size:14px;max-width:86vw;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.4);transition:opacity .3s";document.body.appendChild(x);}x.textContent=t;x.style.opacity=1;clearTimeout(x._t);x._t=setTimeout(function(){x.style.opacity=0;},2600);}
 function shareDraft(){var E=team(en),A=team(my);if(!E.length&&!A.length){dToast("Сначала добавьте героев в драфт");return;}
- var url=location.origin+location.pathname+"#d="+en.join(".")+"-"+my.join(".")+"-"+bn.join(".");
+ var sp="d_"+en.join("x")+"_"+my.join("x")+"_"+bn.join("x"),url="https://t.me/DotaIntellectBot?startapp="+sp;
  var txt="Мой драфт в Dota Intellect: "+(A.map(function(h){return NM[h];}).join(", ")||"—")+" против "+(E.map(function(h){return NM[h];}).join(", ")||"—");
  var tg=window.Telegram&&Telegram.WebApp;
  if(tg&&tg.openTelegramLink&&tg.initData){tg.openTelegramLink("https://t.me/share/url?url="+encodeURIComponent(url)+"&text="+encodeURIComponent(txt));return;}
@@ -640,5 +640,5 @@ function cur(){var t=document.querySelector(".tab.on");return t?t.dataset.t:"hom
 function sync(){try{var sh=document.querySelector(".bsh.on");if(cur()!=="home"||sh)tg.BackButton.show();else tg.BackButton.hide();}catch(e){}}
 try{tg.BackButton.onClick(function(){var sh=document.querySelector(".bsh.on");if(sh){sh.classList.remove("on");sync();return;}tab("home");sync();});}catch(e){}
 document.addEventListener("click",function(){setTimeout(sync,0);},true);sync();
-var sp=tg.initDataUnsafe&&tg.initDataUnsafe.start_param;if(sp&&/^d_[\d_]*$/.test(sp)){var a=sp.slice(2).split("_");location.hash="d="+(a[0]||"").replace(/x/g,".")+"-"+(a[1]||"").replace(/x/g,".")+"-"+(a[2]||"").replace(/x/g,".");}
+var sp=tg.initDataUnsafe&&tg.initDataUnsafe.start_param;if(sp&&/^d_[\dx_]*$/.test(sp)){var a=sp.slice(2).split("_");location.hash="d="+(a[0]||"").replace(/x/g,".")+"-"+(a[1]||"").replace(/x/g,".")+"-"+(a[2]||"").replace(/x/g,".");}
 })();</script></body></html>
