@@ -19,6 +19,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: python hs.py
+        env:
+          STRATZ_TOKEN: ${{ secrets.STRATZ_TOKEN }}
       - run: |
           git config user.name "heroes-bot"
           git config user.email "heroes-bot@users.noreply.github.com"
