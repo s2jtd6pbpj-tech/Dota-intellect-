@@ -65,6 +65,7 @@ def stratz():
     if len(set(idx.values())) != 8:
         raise RuntimeError("не нашёл все 8 рангов в RankBracket: %s" % vals)
     days = {}  # день -> герой -> 16 чисел
+    seen = set()
     for name, i in idx.items():
         d = gql('{heroStats{winDay(take:%d,bracketIds:[%s],'
                 'gameModeIds:[ALL_PICK_RANKED,ALL_PICK])'
@@ -73,6 +74,7 @@ def stratz():
             day = int(r["day"])
             if day > 10 ** 11:
                 day //= 1000
+            seen.add(day)
             if day < start:
                 continue
             a = days.setdefault(day, {}).setdefault(str(r["heroId"]),
@@ -81,7 +83,9 @@ def stratz():
             a[i * 2 + 1] += r["winCount"]
         time.sleep(1.2)
     if not days:
-        raise RuntimeError("нет данных с %s" % PATCH_START)
+        raise RuntimeError("нет данных с %s; STRATZ вернул дни: %s" % (
+            PATCH_START, ", ".join(time.strftime("%Y-%m-%d %H:%M", time.gmtime(x))
+                                   for x in sorted(seen)[-4:]) or "ни одного"))
     patch = {}
     for dd in days.values():
         for h, a in dd.items():
