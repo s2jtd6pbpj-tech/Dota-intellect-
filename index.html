@@ -402,7 +402,7 @@ loop();
 <div id="vMore" class="ov pgw"><div class="pg"><div class="pgt">Ещё</div><p class="pgs">Другие функции</p>
 <div class="card"><b>Варды про-игроков</b><p>Куда ставят варды лучшие саппорты: точки, тепловая карта, срок жизни и КПД. Пока по прошлому патчу 7.41: на 7.42 ещё мало про-матчей.</p><button id="goPro">Открыть на карте</button></div>
 <div class="card"><b>Таймеры Рошана и рун</b><span class="badge">Скоро</span><p>Напоминания прямо в боте.</p></div>
-<div class="card"><b>Разбор матча по ID</b><span class="badge">Скоро</span><p>Где ставили варды и сколько они простояли.</p></div>
+<div class="card" id="mA"><b>Разбор матча по ID</b><p>Вставьте номер матча (Match ID из клиента Dota или с Dotabuff/OpenDota).</p><div style="display:flex;gap:8px;margin-top:8px"><input id="mId" inputmode="numeric" placeholder="Например, 8012345678" style="flex:1;min-width:0;padding:11px;border-radius:10px;border:1px solid #2b3a57;background:#101828;color:#fff;font-size:16px;-webkit-user-select:text;user-select:text"><button id="mGo" style="flex:none;padding:0 16px;border:0;border-radius:10px;background:#ffcf6a;color:#2a1d05;font:inherit;font-weight:800">Разобрать</button></div><div id="mOut" style="margin-top:10px"></div></div>
 <div class="card"><b>О проекте</b><p>Данные матчей: OpenDota. Карта: деревья, рельеф, постройки и зоны запрета вардов из файлов патча 7.42. Подложка: рендер карты 7.42 (вид сверху, 4096 px), привязан к координатам по объектам игры; вода дорисована по рельефу, так как в рендере её нет. Неофициальный проект, не связан с Valve.</p></div></div></div>
 <script>(function(){var tabs=[].slice.call(document.querySelectorAll(".tab")),nav=document.getElementById("tabs"),ov={home:"vHome",heroes:"vHeroes",draft:"vDraft",pl:"vPl",more:"vMore"},pro=document.getElementById("proP");
 function sz(){document.documentElement.style.setProperty("--navh",nav.offsetHeight+"px");}sz();window.addEventListener("resize",sz);
@@ -512,8 +512,24 @@ function listPos(p){var al=team(my),es=team(en),cur=my[p-1],h='';
 function listBan(){var al=team(my),es=team(en),ex=used(),ban=D.h.map(function(h){return h[0];}).filter(function(h){return ex.indexOf(h)<0&&okh(h);}).map(function(h){return[h,score(h,es,al)];}).sort(function(a,b){return b[1].c-a[1].c||b[1].t-a[1].t;}).slice(0,8);
  var bc=bn.map(function(h,i){return'<span class="chip" data-a="unban" data-i="'+i+'">'+NM[h]+' ×</span>';}).join("");
  return'<div class="gh"><b>Кого банить</b></div><p class="pgs" style="margin:0 0 6px">Герои, которые сильнее всего против твоей команды. Тап добавляет в баны.</p>'+(bc?'<div style="margin:0 0 8px">'+bc+'</div>':"")+ban.map(function(r){return row(r[0],r[1],"ban");}).join("");}
+
+function dToast(t){var x=document.getElementById("dToast");if(!x){x=document.createElement("div");x.id="dToast";x.style.cssText="position:fixed;left:50%;bottom:calc(var(--navh,58px) + 14px);transform:translateX(-50%);z-index:400;background:#1c2740;color:#fff;padding:10px 14px;border-radius:12px;font-size:14px;max-width:86vw;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.4);transition:opacity .3s";document.body.appendChild(x);}x.textContent=t;x.style.opacity=1;clearTimeout(x._t);x._t=setTimeout(function(){x.style.opacity=0;},2600);}
+function shareDraft(){var E=team(en),A=team(my);if(!E.length&&!A.length){dToast("Сначала добавьте героев в драфт");return;}
+ var url=location.origin+location.pathname+"#d="+en.join(".")+"-"+my.join(".")+"-"+bn.join(".");
+ var txt="Мой драфт в Dota Intellect: "+(A.map(function(h){return NM[h];}).join(", ")||"—")+" против "+(E.map(function(h){return NM[h];}).join(", ")||"—");
+ var tg=window.Telegram&&Telegram.WebApp;
+ if(tg&&tg.openTelegramLink&&tg.initData){tg.openTelegramLink("https://t.me/share/url?url="+encodeURIComponent(url)+"&text="+encodeURIComponent(txt));return;}
+ if(navigator.share){navigator.share({title:"Dota Intellect",text:txt,url:url}).catch(function(){});return;}
+ var done=function(){dToast("Ссылка на драфт скопирована");};
+ if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt+"\n"+url).then(done,function(){prompt("Скопируйте ссылку:",url);});else prompt("Скопируйте ссылку:",url);}
+function loadHash(){var m=(location.hash||"").match(/d=([\d.]*)-([\d.]*)(?:-([\d.]*))?/);if(!m)return false;
+ function arr(x,n){var a=(x||"").split(".").filter(Boolean).map(Number).filter(function(v){return NM[v];});if(n){while(a.length<n)a.push(0);a=a.slice(0,n);}return a;}
+ en=arr(m[1],5);my=arr(m[2],5);bn=arr(m[3]);tab=1;open={};more={};render();
+ var t=[].filter.call(document.querySelectorAll(".tab"),function(x){return x.dataset.t==="draft";})[0];if(t)t.click();
+ var vt=document.getElementById("vTitle");if(vt)vt.style.display="none";return true;}
+window.addEventListener("hashchange",loadHash);setTimeout(loadHash,0);
 function render(){var tb=[1,2,3,4,5].map(function(p){var c=my[p-1];return'<button class="tb'+(tab===p?" on":"")+'" data-a="tab" data-p="'+p+'">'+p+(c?'<small>✓ '+NM[c].slice(0,9)+'</small>':'<small>Pos '+p+'</small>')+'</button>';}).join("")+'<button class="tb'+(tab===6?" on":"")+'" data-a="tab" data-p="6">Баны<small>'+bn.length+'</small></button>';
- root.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><div class="pgt">Драфт</div><button class="sm" data-a="reset">Сбросить</button></div>'
+ root.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><div class="pgt">Драфт</div><span style="display:flex;gap:6px"><button class="sm" data-a="share">Поделиться</button><button class="sm" data-a="reset">Сбросить</button></span></div>'
  +'<div class="seg"><button class="'+(src==="pub"?"on":"")+'" data-a="src" data-v="pub">Паблики · Legend+</button><button class="'+(src==="pro"?"on":"")+'" data-a="src" data-v="pro">Про-сцена</button></div>'
  +(src==="pro"?'<p class="pgs" style="margin:-4px 0 8px;font-size:12px">Про-выборка маленькая (около 10 игр на героя), цифры сильно скачут. Контры и синергия считаются по пабликам.</p>':'<p class="pgs" style="margin:-4px 0 8px;font-size:12px">Во вкладках позиций сила героя = его винрейт на этой позиции (STRATZ, Legend+, All Pick, 30 дней по 17.11.2026). В остальных местах: винрейт по всем ролям (OpenDota).</p>')
  +'<div class="seg">'+[["both","Механики + статистика"],["mech","Механики"],["stat","Статистика"]].map(function(m){return'<button style="font-size:12.5px" class="'+(meth===m[0]?"on":"")+'" data-a="meth" data-v="'+m[0]+'">'+m[1]+'</button>';}).join("")+'</div>'
@@ -538,6 +554,7 @@ document.getElementById("vDraft").addEventListener("click",function(e){var t=e.t
  if(a==="unban"){bn.splice(+t.dataset.i,1);render();return;}
  if(a==="chg"){my[+t.dataset.p-1]=0;render();return;}
  if(a==="more"){more[t.dataset.p]=true;render();return;}
+ if(a==="share"){shareDraft();return;}
  if(a==="reset"){my=[0,0,0,0,0];en=[0,0,0,0,0];bn=[];open={};more={};tab=1;render();}});
 document.getElementById("drQ").addEventListener("input",pick);
 document.getElementById("drC").onclick=function(){document.getElementById("drPick").classList.remove("on");act=null;};
@@ -587,4 +604,31 @@ function txt(sel,root){return [].map.call(root.querySelectorAll(sel),function(x)
  var g=document.createElement("button");g.id="bSet";g.type="button";g.textContent="⚙ Настройки";F.insertBefore(g,F.firstChild);g.onclick=function(){S.classList.add("on");};
  var h=document.getElementById("hint");if(h){h.textContent="Нажмите на карту, чтобы поставить вард. Двумя пальцами — масштаб и поворот.";var hide=function(){h.classList.add("gone");};setTimeout(hide,6000);var cvv=document.getElementById("cv");if(cvv)cvv.addEventListener("pointerdown",hide,{once:true});}
 })();
+})();</script><script>(function(){var go=document.getElementById("mGo"),inp=document.getElementById("mId"),out=document.getElementById("mOut");if(!go)return;
+var D=window.DI&&window.DI.D,NM={};if(D)D.h.forEach(function(h){NM[h[0]]=h[1];});var last=null;
+function esc(t){return String(t==null?"":t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function mmss(s){s=Math.max(0,s|0);return Math.floor(s/60)+":"+("0"+s%60).slice(-2);}
+function msg(t,c){out.innerHTML='<p style="color:'+(c||"#8d9ab3")+';margin:0">'+t+'</p>';}
+function rad(p){return p.isRadiant!=null?p.isRadiant:p.player_slot<128;}
+function team(ps,r){return ps.filter(function(p){return rad(p)===r;}).sort(function(a,b){return a.player_slot-b.player_slot;});}
+function row(p){var n=NM[p.hero_id]||("#"+p.hero_id),w=(p.obs_log||[]).length,se=(p.sen_log||[]).length;
+ return'<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px solid #1c2740;font-size:13px">'+(window.HI?HI(p.hero_id):"")+'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>'+esc(n)+'</b> <span style="color:#7f8ba5">'+esc(p.personaname||"аноним")+'</span></span><span style="color:#cfd8ea;white-space:nowrap">'+p.kills+'/'+p.deaths+'/'+p.assists+'</span><span style="color:#7f8ba5;white-space:nowrap">'+(p.gold_per_min||0)+' GPM'+(w+se?' · 👁'+w+'/'+se:'')+'</span></div>';}
+function render(m){last=m;var ps=m.players||[],R=team(ps,true),Dr=team(ps,false),obs=0,sen=0;ps.forEach(function(p){obs+=(p.obs_log||[]).length;sen+=(p.sen_log||[]).length;});
+ var parsed=ps.some(function(p){return p.obs_log;});
+ out.innerHTML='<div style="font-size:14px;margin-bottom:6px"><b style="color:'+(m.radiant_win?"#7ee08a":"#ff8a8a")+'">'+(m.radiant_win?"Победа Сил Света":"Победа Сил Тьмы")+'</b> · '+(m.radiant_score||0)+':'+(m.dire_score||0)+' · '+mmss(m.duration)+'</div>'
+ +'<div style="font-size:12px;color:#7ee08a;margin-top:6px">Силы Света</div>'+R.map(row).join("")+'<div style="font-size:12px;color:#ff8a8a;margin-top:8px">Силы Тьмы</div>'+Dr.map(row).join("")
+ +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"><button class="sm" data-m="dr" data-r="1">Драфт за Свет</button><button class="sm" data-m="dr" data-r="0">Драфт за Тьму</button>'+(parsed&&obs+sen?'<button class="sm" data-m="wd">Варды на карте ('+obs+'+'+sen+')</button>':'')+'</div>'
+ +(parsed?'':'<p style="color:#8d9ab3;font-size:12px;margin:8px 0 0">Матч ещё не разобран OpenDota, поэтому вардов нет. <a href="#" data-m="rq" style="color:#ffcf6a">Запросить разбор</a>, затем повторите через несколько минут.</p>');}
+function load(){var id=(inp.value||"").replace(/\D/g,"");if(id.length<6){msg("Введите номер матча цифрами.","#ff9a9a");return;}
+ msg("Загружаю матч "+id+"…");fetch("https://api.opendota.com/api/matches/"+id).then(function(r){if(r.status===404)throw new Error("nf");if(!r.ok)throw new Error("http"+r.status);return r.json();})
+ .then(function(m){if(!m||!m.players||!m.players.length)throw new Error("nf");render(m);})
+ .catch(function(e){msg(e.message==="nf"?"Матч не найден. Проверьте номер.":"Не удалось загрузить матч (OpenDota недоступна или лимит запросов). Попробуйте позже.","#ff9a9a");});}
+go.onclick=load;inp.addEventListener("keydown",function(e){if(e.key==="Enter")load();});
+out.addEventListener("click",function(e){var t=e.target.closest("[data-m]");if(!t||!last)return;e.preventDefault();var k=t.dataset.m,ps=last.players;
+ if(k==="dr"){var r=t.dataset.r==="1",my=team(ps,r).map(function(p){return p.hero_id;}),en=team(ps,!r).map(function(p){return p.hero_id;});location.hash="d="+en.join(".")+"-"+my.join(".")+"-";}
+ if(k==="rq"){fetch("https://api.opendota.com/api/request/"+last.match_id,{method:"POST"}).then(function(){msg("Разбор запрошен. Попробуйте открыть матч через 3–5 минут.");},function(){msg("Не удалось запросить разбор.","#ff9a9a");});}
+ if(k==="wd"){var A=window.__app;if(!A)return;var tb=[].filter.call(document.querySelectorAll(".tab"),function(x){return x.dataset.t==="map";})[0];if(tb)tb.click();var ms=document.getElementById("mSelf");if(ms)ms.click();
+  var c=document.getElementById("bClear");if(c)c.click();var n=0;
+  ps.forEach(function(p){[["obs",p.obs_log||[]],["sen",p.sen_log||[]]].forEach(function(L){var b=document.getElementById(L[0]==="obs"?"bObs":"bSen");L[1].forEach(function(w){if(b)b.click();var x=(w.x-128)*128,y=(w.y-128)*128,before=A.wards.length;A.addWard(x,y);if(A.wards.length>before)n++;});});});
+  var o=document.getElementById("bObs");if(o)o.click();setTimeout(function(){var tt=document.getElementById("toast");if(tt){tt.textContent="Показано вардов матча: "+n;}},50);}});
 })();</script></body></html>
