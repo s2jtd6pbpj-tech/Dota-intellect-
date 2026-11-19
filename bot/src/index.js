@@ -46,14 +46,8 @@ function reply(chatId, text, button = true) {
     { headers: { 'Content-Type': 'application/json' } });
 }
 
-// Начало суток по Москве (UTC+3), в миллисекундах.
-function dayStart(now) {
-  const msk = 3 * 3600e3;
-  return Math.floor((now + msk) / 86400e3) * 86400e3 - msk;
-}
-
 async function stats(d, now) {
-  const t0 = dayStart(now), d7 = now - 7 * 86400e3, d30 = now - 30 * 86400e3;
+  const t0 = now - 86400e3, d7 = now - 7 * 86400e3, d30 = now - 30 * 86400e3;
   const q = (sql, ...a) => d.prepare(sql).bind(...a);
   const [b, a, plat, src] = await d.batch([
     q(`SELECT COUNT(*) n,
@@ -74,13 +68,13 @@ async function stats(d, now) {
   let t = `📊 Статистика Dota Intellect\n\n`;
   t += `🤖 Бот (писали боту)\n`;
   t += `• всего людей: ${z(B.n)}\n`;
-  t += `• новых: сегодня ${z(B.nt)} · 7 дней ${z(B.n7)}\n`;
-  t += `• активны: сегодня ${z(B.at)} · 7 дней ${z(B.a7)} · 30 дней ${z(B.a30)}\n`;
+  t += `• новых: за 24 часа ${z(B.nt)} · 7 дней ${z(B.n7)}\n`;
+  t += `• активны: за 24 часа ${z(B.at)} · 7 дней ${z(B.a7)} · 30 дней ${z(B.a30)}\n`;
   t += `• сообщений всего: ${z(B.m)}\n\n`;
   t += `📱 Приложение (открывали)\n`;
   t += `• всего: ${z(A.n)} (из Telegram ${z(A.tgn)}, из браузера ${z(A.n) - z(A.tgn)})\n`;
-  t += `• новых: сегодня ${z(A.nt)} · 7 дней ${z(A.n7)}\n`;
-  t += `• активны: сегодня ${z(A.at)} · 7 дней ${z(A.a7)} · 30 дней ${z(A.a30)}\n`;
+  t += `• новых: за 24 часа ${z(A.nt)} · 7 дней ${z(A.n7)}\n`;
+  t += `• активны: за 24 часа ${z(A.at)} · 7 дней ${z(A.a7)} · 30 дней ${z(A.a30)}\n`;
   t += `• открытий всего: ${z(A.o)}\n`;
   if (plat.results.length) {
     t += `\nУстройства:\n` + plat.results
@@ -90,7 +84,6 @@ async function stats(d, now) {
     t += `\nОткуда пришли (ссылки t.me/DotaIntellectBot?start=…):\n` + src.results
       .map(r => `• ${r.src}: ${r.n}`).join('\n') + '\n';
   }
-  t += `\n«Сегодня» — с 00:00 по Москве.`;
   return t;
 }
 
