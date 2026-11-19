@@ -28,6 +28,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 #tabs{display:flex;flex:0 0 auto;background:#0a0e18;border-top:1px solid #1d2638;position:relative;z-index:60}
 .tab{flex:1;background:none;border:0;color:#7f8aa3;padding:7px 2px 6px;font:inherit;font-size:11px;touch-action:manipulation}.tab i{display:block;font-style:normal;font-size:20px;line-height:1.1}.tab.on{color:#ffcf6a}
 .ov{position:fixed;left:0;right:0;top:0;bottom:var(--navh,58px);z-index:40;display:none;overflow:auto;-webkit-user-select:none;user-select:none}.ov.on{display:block}
+.ov.on{animation:ovIn .22s ease-out both}.ov.on .pg,.ov.on #hm .xw{animation:pgIn .34s cubic-bezier(.2,.8,.2,1) both}@keyframes ovIn{from{opacity:0}to{opacity:1}}@keyframes pgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.ov.on,.ov.on .pg,.ov.on #hm .xw{animation:none}}
 #vHome{background:radial-gradient(60% 28% at 50% 66%,rgba(255,125,45,.40),transparent 72%),radial-gradient(120% 72% at 50% 26%,#43206b 0%,#1b1445 40%,#0a0d20 72%,#05070f 100%);overflow:hidden}
 .star{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.7;animation:tw 3s infinite ease-in-out}@keyframes tw{50%{opacity:.1}}
 .ttl{position:absolute;left:0;right:0;top:6%;text-align:center;padding:0 16px;z-index:3}
