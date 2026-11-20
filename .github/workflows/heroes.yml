@@ -24,6 +24,6 @@ jobs:
       - run: |
           git config user.name "heroes-bot"
           git config user.email "heroes-bot@users.noreply.github.com"
-          git add heroes.json
+          git add heroes.json hours.json
           git diff --cached --quiet || git commit -m "heroes: $(date -u +%F)"
           git push

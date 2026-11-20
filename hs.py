@@ -123,10 +123,39 @@ def stratz():
     print("STRATZ: суток", len(days), "часов", len(hours),
           "последний час:", fmt(max(hseen)) if hseen else "-")
 
+    # Почасовые данные копим в hours.json: STRATZ отдаёт только ~30 последних часов,
+    # а полные сутки появляются больше чем через день.
+    tail = (max(days) + 86400) if days else start
+    try:
+        cache = {int(k): v for k, v in json.load(open("hours.json")).items()}
+    except Exception:
+        cache = {}
+        # Разовый запуск: восстановить часы до начала окна STRATZ из прошлой сводки
+        try:
+            seed = json.load(open("seed.json"))
+            to = calendar.timegm(time.strptime(seed["to"], "%Y-%m-%d %H:%M"))
+            first = min(hours) if hours else to
+            if first > start:
+                have = {}
+                for t, hh in hours.items():
+                    if t < to:
+                        add(have, hh)
+                miss = {}
+                for h, a in seed["st"].items():
+                    b = have.get(h, [0] * 16)
+                    miss[h] = [max(0, a[j] - b[j]) for j in range(16)]
+                cache[start] = miss
+                print("STRATZ: восстановил часы с", fmt(start), "до", fmt(first))
+        except Exception as e:
+            print("seed не применён:", e)
+    cache.update(hours)
+    hours = {t: v for t, v in cache.items() if t >= tail}
+    json.dump({str(t): v for t, v in sorted(hours.items())},
+              open("hours.json", "w"), separators=(",", ":"))
+
     patch = {}
     for dd in days.values():
         add(patch, dd)
-    tail = (max(days) + 86400) if days else start
     for t, hh in hours.items():
         if t >= tail:
             add(patch, hh)
