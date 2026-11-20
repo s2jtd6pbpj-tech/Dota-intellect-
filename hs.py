@@ -52,9 +52,49 @@ def gql(query):
     return r["data"]
 
 
+def ts(x):
+    x = int(x)
+    if x > 10 ** 11:
+        return x // 1000
+    if x < 10 ** 7:  # часы с 1970 года
+        return x * 3600
+    return x
+
+
+def pull(field, take, idx, start):
+    """field = winDay | winHour -> {время: {герой: 16 чисел}}"""
+    res, seen = {}, set()
+    for name, i in idx.items():
+        key = "day" if field == "winDay" else "hour"
+        d = gql('{heroStats{%s(take:%d,bracketIds:[%s],'
+                'gameModeIds:[ALL_PICK_RANKED,ALL_PICK])'
+                '{%s heroId matchCount winCount}}}' % (field, take, name, key))
+        for r in d["heroStats"][field] or []:
+            t = ts(r[key])
+            seen.add(t)
+            if t < start:
+                continue
+            a = res.setdefault(t, {}).setdefault(str(r["heroId"]), [0] * 16)
+            a[i * 2] += r["matchCount"]
+            a[i * 2 + 1] += r["winCount"]
+        time.sleep(1.2)
+    return res, seen
+
+
+def add(dst, src):
+    for h, a in src.items():
+        p = dst.setdefault(h, [0] * 16)
+        for j in range(16):
+            p[j] += a[j]
+
+
+def fmt(t):
+    return time.strftime("%Y-%m-%d %H:%M", time.gmtime(t))
+
+
 def stratz():
     start = calendar.timegm(time.strptime(PATCH_START, "%Y-%m-%d"))
-    take = max(2, int((time.time() - start) // 86400) + 2)
+    now = time.time()
     enum = gql('{__type(name:"RankBracket"){enumValues{name}}}')
     vals = [v["name"] for v in enum["__type"]["enumValues"]]
     idx = {}
@@ -64,42 +104,50 @@ def stratz():
                 idx[v] = i
     if len(set(idx.values())) != 8:
         raise RuntimeError("не нашёл все 8 рангов в RankBracket: %s" % vals)
-    days = {}  # день -> герой -> 16 чисел
-    seen = set()
-    for name, i in idx.items():
-        d = gql('{heroStats{winDay(take:%d,bracketIds:[%s],'
-                'gameModeIds:[ALL_PICK_RANKED,ALL_PICK])'
-                '{day heroId matchCount winCount}}}' % (take, name))
-        for r in d["heroStats"]["winDay"] or []:
-            day = int(r["day"])
-            if day > 10 ** 11:
-                day //= 1000
-            seen.add(day)
-            if day < start:
-                continue
-            a = days.setdefault(day, {}).setdefault(str(r["heroId"]),
-                                                     [0] * 16)
-            a[i * 2] += r["matchCount"]
-            a[i * 2 + 1] += r["winCount"]
-        time.sleep(1.2)
-    if not days:
-        raise RuntimeError("нет данных с %s; STRATZ вернул дни: %s" % (
-            PATCH_START, ", ".join(time.strftime("%Y-%m-%d %H:%M", time.gmtime(x))
-                                   for x in sorted(seen)[-4:]) or "ни одного"))
+
+    # Полные сутки (STRATZ отдаёт их с задержкой)
+    days, dseen = {}, set()
+    try:
+        days, dseen = pull("winDay", max(2, int((now - start) // 86400) + 2),
+                           idx, start)
+    except Exception as e:
+        out["stratz_day_error"] = str(e)[:200]
+    # Почасовые данные: последние 24 часа и хвост после последних полных суток
+    hours, hseen = {}, set()
+    try:
+        hours, hseen = pull("winHour", 72, idx, start)
+    except Exception as e:
+        out["stratz_hour_error"] = str(e)[:200]
+    print("STRATZ: суток", len(days), "часов", len(hours),
+          "последний час:", fmt(max(hseen)) if hseen else "-")
+
     patch = {}
     for dd in days.values():
-        for h, a in dd.items():
-            p = patch.setdefault(h, [0] * 16)
-            for j in range(16):
-                p[j] += a[j]
-    last = max(days)
+        add(patch, dd)
+    tail = (max(days) + 86400) if days else start
+    for t, hh in hours.items():
+        if t >= tail:
+            add(patch, hh)
+    if not patch:
+        raise RuntimeError("нет данных с %s; дни: %s; часы: %s" % (
+            PATCH_START, ", ".join(fmt(x) for x in sorted(dseen)[-3:]) or "-",
+            ", ".join(fmt(x) for x in sorted(hseen)[-2:]) or "-"))
+    last = max(list(hours) + [t + 86400 - 3600 for t in days])
     out["patch"] = {"name": PATCH, "since": PATCH_START, "st": patch,
-                    "days": len(days)}
-    out["day"] = {"date": time.strftime("%Y-%m-%d", time.gmtime(last)),
-                  "st": days[last]}
+                    "days": len(days), "to": fmt(last + 3600)}
+    if hours:
+        top = max(hours)
+        d24 = {}
+        for t, hh in hours.items():
+            if t > top - 86400:
+                add(d24, hh)
+        out["day"] = {"date": fmt(top + 3600)[:10], "to": fmt(top + 3600),
+                      "hours": True, "st": d24}
+    elif days:
+        out["day"] = {"date": fmt(max(days))[:10], "st": days[max(days)]}
     tot = sum(sum(a[8:16:2]) for a in patch.values())
-    print("STRATZ: дней", len(days), "героев", len(patch),
-          "игр Legend+ (героо-игр)", tot)
+    print("STRATZ: героев", len(patch), "игр Legend+ (героо-игр)", tot,
+          "данные до", out["patch"]["to"])
 
 
 if TOK:
