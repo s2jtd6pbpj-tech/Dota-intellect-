@@ -1,4 +1,4 @@
-import calendar, json, os, sys, time, urllib.request
+import calendar, json, os, sys, time, urllib.error, urllib.request
 
 # Начало текущего патча (сутки STRATZ считаются по UTC).
 PATCH = "7.42"
@@ -42,6 +42,17 @@ RANKS = ["HERALD", "GUARDIAN", "CRUSADER", "ARCHON",
 
 
 def gql(query):
+    # STRATZ иногда отвечает 403/429 при частых запросах: ждём и пробуем снова
+    for k in range(4):
+        try:
+            return gql_once(query)
+        except urllib.error.HTTPError as e:
+            if e.code not in (403, 429, 502, 503) or k == 3:
+                raise
+            time.sleep(30 * (k + 1))
+
+
+def gql_once(query):
     r = get_json("https://api.stratz.com/graphql",
                  json.dumps({"query": query}).encode(),
                  {"Content-Type": "application/json",
@@ -159,6 +170,18 @@ if TOK:
 else:
     out["stratz_error"] = "нет STRATZ_TOKEN"
     print("STRATZ: нет токена, пропускаю")
+
+# Если STRATZ сейчас недоступен, оставляем прошлые данные за патч и 24 часа
+if "patch" not in out:
+    try:
+        old = json.load(open("heroes.json"))
+        if old.get("patch", {}).get("since") == PATCH_START:
+            out["patch"] = old["patch"]
+            if old.get("day"):
+                out["day"] = old["day"]
+            print("STRATZ: оставил прошлые данные до", old["patch"].get("to"))
+    except Exception as e:
+        print("старый heroes.json не прочитан:", e)
 
 json.dump(out, open("heroes.json", "w"), separators=(",", ":"))
 print("ok, героев:", len(st), "дата:", out["date"])
