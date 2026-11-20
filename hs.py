@@ -72,24 +72,29 @@ def ts(x):
     return x
 
 
-def pull(field, take, idx, start):
-    """field = winDay | winHour -> {время: {герой: 16 чисел}}"""
-    res, seen = {}, set()
-    for name, i in idx.items():
-        key = "day" if field == "winDay" else "hour"
-        d = gql('{heroStats{%s(take:%d,bracketIds:[%s],'
-                'gameModeIds:[ALL_PICK_RANKED,ALL_PICK])'
-                '{%s heroId matchCount winCount}}}' % (field, take, name, key))
-        for r in d["heroStats"][field] or []:
-            t = ts(r[key])
-            seen.add(t)
-            if t < start:
-                continue
-            a = res.setdefault(t, {}).setdefault(str(r["heroId"]), [0] * 16)
-            a[i * 2] += r["matchCount"]
-            a[i * 2 + 1] += r["winCount"]
-        time.sleep(1.2)
-    return res, seen
+def pull_all(take_d, take_h, start):
+    """Один запрос на все ранги: {"winDay": {время: {герой: 16}}, "winHour": ...}"""
+    mode = "gameModeIds:[ALL_PICK_RANKED,ALL_PICK]"
+    parts = []
+    for i, name in enumerate(RANKS):
+        parts.append("d%d:winDay(take:%d,bracketIds:[%s],%s){day heroId matchCount winCount}"
+                     % (i, take_d, name, mode))
+        parts.append("h%d:winHour(take:%d,bracketIds:[%s],%s){hour heroId matchCount winCount}"
+                     % (i, take_h, name, mode))
+    d = gql("{heroStats{%s}}" % " ".join(parts))["heroStats"]
+    res = {"winDay": ({}, set()), "winHour": ({}, set())}
+    for i in range(len(RANKS)):
+        for pre, field, key in (("d", "winDay", "day"), ("h", "winHour", "hour")):
+            out_, seen = res[field]
+            for r in d.get("%s%d" % (pre, i)) or []:
+                t = ts(r[key])
+                seen.add(t)
+                if t < start:
+                    continue
+                a = out_.setdefault(t, {}).setdefault(str(r["heroId"]), [0] * 16)
+                a[i * 2] += r["matchCount"]
+                a[i * 2 + 1] += r["winCount"]
+    return res
 
 
 def add(dst, src):
@@ -106,29 +111,9 @@ def fmt(t):
 def stratz():
     start = calendar.timegm(time.strptime(PATCH_START, "%Y-%m-%d"))
     now = time.time()
-    enum = gql('{__type(name:"RankBracket"){enumValues{name}}}')
-    vals = [v["name"] for v in enum["__type"]["enumValues"]]
-    idx = {}
-    for v in vals:
-        for i, k in enumerate(RANKS):
-            if k in v and "_" not in v:
-                idx[v] = i
-    if len(set(idx.values())) != 8:
-        raise RuntimeError("не нашёл все 8 рангов в RankBracket: %s" % vals)
-
-    # Полные сутки (STRATZ отдаёт их с задержкой)
-    days, dseen = {}, set()
-    try:
-        days, dseen = pull("winDay", max(2, int((now - start) // 86400) + 2),
-                           idx, start)
-    except Exception as e:
-        out["stratz_day_error"] = str(e)[:200]
-    # Почасовые данные: последние 24 часа и хвост после последних полных суток
-    hours, hseen = {}, set()
-    try:
-        hours, hseen = pull("winHour", 72, idx, start)
-    except Exception as e:
-        out["stratz_hour_error"] = str(e)[:200]
+    res = pull_all(max(2, int((now - start) // 86400) + 2), 72, start)
+    days, dseen = res["winDay"]
+    hours, hseen = res["winHour"]
     print("STRATZ: суток", len(days), "часов", len(hours),
           "последний час:", fmt(max(hseen)) if hseen else "-")
 
