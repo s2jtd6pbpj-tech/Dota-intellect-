@@ -47,6 +47,12 @@ def gql(query):
         try:
             return gql_once(query)
         except urllib.error.HTTPError as e:
+            try:
+                body = e.read()[:300].decode("utf-8", "replace")
+            except Exception:
+                body = ""
+            print("STRATZ HTTP", e.code, "server:", e.headers.get("server"),
+                  "| ответ:", " ".join(body.split())[:300])
             if e.code not in (403, 429, 502, 503) or k == 3:
                 raise
             time.sleep(30 * (k + 1))
