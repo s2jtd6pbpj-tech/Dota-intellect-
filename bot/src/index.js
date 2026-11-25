@@ -25,6 +25,7 @@ const FB_THANKS = 'Спасибо! Передал разработчику 🙏 
 
 const OWNER_HELP = `Команды владельца:
 /stats — статистика
+/online — кто сейчас в приложении и как долго сидят
 /inbox — последние отзывы
 /broadcast — рассылка всем пользователям
 
@@ -37,7 +38,11 @@ const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)',
   'CREATE TABLE IF NOT EXISTS feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, uid TEXT, chat INTEGER, name TEXT, src TEXT, rating INTEGER, tags TEXT, text TEXT, answered INTEGER DEFAULT 0)',
   'CREATE TABLE IF NOT EXISTS bcast (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, text TEXT, entities TEXT, total INTEGER DEFAULT 0, sent INTEGER DEFAULT 0, failed INTEGER DEFAULT 0, status TEXT)',
-  'CREATE TABLE IF NOT EXISTS bq (bc INTEGER, chat INTEGER, PRIMARY KEY (bc, chat))'
+  'CREATE TABLE IF NOT EXISTS bq (bc INTEGER, chat INTEGER, PRIMARY KEY (bc, chat))',
+  'CREATE TABLE IF NOT EXISTS sess (id TEXT PRIMARY KEY, uid TEXT, start INTEGER, last INTEGER, pings INTEGER DEFAULT 1)',
+  'CREATE INDEX IF NOT EXISTS sess_last ON sess (last)',
+  'CREATE INDEX IF NOT EXISTS sess_start ON sess (start)',
+  'CREATE TABLE IF NOT EXISTS stabs (sid TEXT, tab TEXT, PRIMARY KEY (sid, tab))'
 ];
 let ready = false;
 async function db(env) {
@@ -197,6 +202,8 @@ async function stats(d, now) {
   t += `• новых: за 24 часа ${z(A.nt)} · 7 дней ${z(A.n7)}\n`;
   t += `• активны: за 24 часа ${z(A.at)} · 7 дней ${z(A.a7)} · 30 дней ${z(A.a30)}\n`;
   t += `• открытий всего: ${z(A.o)}\n\n`;
+  const on = await d.prepare(`SELECT COUNT(DISTINCT uid) n FROM sess WHERE last>=?1`).bind(now - 90e3).first('n');
+  t += `🟢 Сейчас в приложении: ${z(on)} · подробно: /online\n\n`;
   t += `💬 Отзывы: всего ${z(F.n)} · за 7 дней ${z(F.n7)}`;
   t += F.nr ? ` · средняя оценка ${F.avg.toFixed(1)} (оценок: ${F.nr})\n` : '\n';
   if (plat.results.length) {
@@ -207,6 +214,49 @@ async function stats(d, now) {
     t += `\nОткуда пришли (ссылки t.me/DotaIntellectBot?start=…):\n` + src.results
       .map(r => `• ${r.src}: ${r.n}`).join('\n') + '\n';
   }
+  return t;
+}
+
+const TAB_NAMES = { home: 'Главная', map: 'Карта', heroes: 'Герои', draft: 'Драфт', pl: 'Игроки', more: 'Ещё' };
+function dur(ms) {
+  const s = Math.round(ms / 1000);
+  return s < 30 ? 'до 30 сек' : s < 60 ? s + ' сек' : s < 3600 ? Math.floor(s / 60) + ' мин ' + (s % 60) + ' сек' : Math.floor(s / 3600) + ' ч ' + Math.floor(s % 3600 / 60) + ' мин';
+}
+// Реальная активность: приложение шлёт отметку каждые 30 с, пока открыто на экране.
+async function online(d, now) {
+  const t0 = now - 86400e3, d7 = now - 7 * 86400e3;
+  const q = (sql, ...a) => d.prepare(sql).bind(...a);
+  const [on, s24, tabs, ret, hours] = await d.batch([
+    q(`SELECT COUNT(DISTINCT uid) n FROM sess WHERE last>=?1`, now - 90e3),
+    q(`SELECT uid, last-start ms FROM sess WHERE start>=?1 LIMIT 20000`, t0),
+    q(`SELECT t.tab, COUNT(DISTINCT s.uid) n FROM stabs t JOIN sess s ON s.id=t.sid WHERE s.start>=?1 GROUP BY t.tab ORDER BY n DESC`, t0),
+    q(`SELECT COUNT(*) n, SUM(dd>=2) r FROM (SELECT uid, COUNT(DISTINCT (start+10800000)/86400000) dd FROM sess WHERE start>=?1 GROUP BY uid)`, d7),
+    q(`SELECT ((start+10800000)/3600000)%24 h, COUNT(DISTINCT uid) n FROM sess WHERE start>=?1 GROUP BY h ORDER BY n DESC LIMIT 3`, t0)
+  ]);
+  const S = s24.results, ms = S.map(x => x.ms).sort((a, b) => a - b);
+  const users = new Set(S.map(x => x.uid));
+  const perUser = {}, nUser = {};
+  for (const x of S) { perUser[x.uid] = (perUser[x.uid] || 0) + x.ms; nUser[x.uid] = (nUser[x.uid] || 0) + 1; }
+  const ut = Object.values(perUser).sort((a, b) => a - b);
+  const med = a => a.length ? a[Math.floor(a.length / 2)] : 0;
+  const pct = (n, all) => all ? Math.round(n * 100 / all) + '%' : '—';
+  const R = ret.results[0];
+  let t = `🟢 Сейчас в приложении: ${on.results[0].n}\n\n`;
+  t += `За 24 часа:\n`;
+  t += `• людей: ${users.size}, заходов: ${S.length}\n`;
+  if (S.length) {
+    t += `• заход длится (медиана): ${dur(med(ms))}\n`;
+    t += `• время на человека за сутки (медиана): ${dur(med(ut))}\n`;
+    t += `• зашли и вышли (до 30 сек): ${pct(ms.filter(x => x < 30e3).length, ms.length)} заходов\n`;
+    t += `• сидели дольше 2 минут: ${pct(ms.filter(x => x >= 120e3).length, ms.length)} заходов\n`;
+    t += `• больше одного захода: ${pct(Object.values(nUser).filter(n => n > 1).length, users.size)} людей\n`;
+  }
+  if (tabs.results.length) {
+    t += `\nКуда заходят (людей за 24 ч):\n` + tabs.results.map(x => `• ${TAB_NAMES[x.tab] || x.tab}: ${x.n} (${pct(x.n, users.size)})`).join('\n') + '\n';
+  }
+  t += `\nВозвращаются (7 дней): ${R.r || 0} из ${R.n || 0} заходили в 2 и больше разных дня`;
+  if (hours.results.length) t += `\nСамые активные часы (МСК): ` + hours.results.map(x => `${String(x.h).padStart(2, '0')}:00`).join(', ');
+  t += `\n\nСчитается только время, когда приложение открыто на экране. Данные — с момента обновления бота.`;
   return t;
 }
 
@@ -305,6 +355,7 @@ async function onMessage(msg, env, ctx) {
     if (!isOwner) return reply(chat, HINT);
     return reply(chat, await stats(d, now), false);
   }
+  if (isOwner && cmd === '/online') return reply(chat, await online(d, now), false);
   if (isOwner && cmd === '/inbox') return reply(chat, await inbox(d), false);
   if (isOwner && cmd === '/reply') {
     const m = msg.text.match(/^\/reply(?:@\w+)?\s+#?(\d+)\s+([\s\S]+)/);
@@ -432,6 +483,27 @@ async function onOpen(request, env) {
   return new Response('ok', { headers: CORS });
 }
 
+// Пульс приложения: {s: id захода, u: id пользователя, t: вкладка}
+async function onPing(request, env) {
+  const d = await db(env).catch(() => null);
+  if (!d) return new Response('no db', { headers: CORS });
+  let j;
+  try { j = JSON.parse(await request.text()); } catch { return new Response('bad', { status: 400, headers: CORS }); }
+  const sid = String(j.s || ''), u = String(j.u || ''), tab = String(j.t || '');
+  if (!/^[a-z0-9]{8,32}$/.test(sid) || !/^(tg\d{1,15}|w[a-z0-9]{8,24})$/.test(u)) return new Response('bad', { status: 400, headers: CORS });
+  const now = Date.now();
+  const st = [d.prepare(`INSERT INTO sess (id, uid, start, last) VALUES (?1, ?2, ?3, ?3)
+    ON CONFLICT(id) DO UPDATE SET last=?3, pings=pings+1 WHERE uid=?2 AND last>?3-600000`).bind(sid, u, now)];
+  if (/^[a-z]{2,8}$/.test(tab)) st.push(d.prepare(`INSERT OR IGNORE INTO stabs (sid, tab) VALUES (?1, ?2)`).bind(sid, tab));
+  if (Math.random() < 0.002) {
+    const old = now - 90 * 86400e3;
+    st.push(d.prepare(`DELETE FROM stabs WHERE sid IN (SELECT id FROM sess WHERE last<?1)`).bind(old));
+    st.push(d.prepare(`DELETE FROM sess WHERE last<?1`).bind(old));
+  }
+  await d.batch(st);
+  return new Response('ok', { headers: CORS });
+}
+
 // Отзыв из приложения: {init: Telegram.WebApp.initData, u: id браузера, r: 1-5, tags: [...], t: текст}
 async function onAppFeedback(request, env, ctx) {
   const d = await db(env).catch(() => null);
@@ -464,10 +536,11 @@ async function onAppFeedback(request, env, ctx) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    if (url.pathname === '/open' || url.pathname === '/fb') {
+    if (url.pathname === '/open' || url.pathname === '/fb' || url.pathname === '/ping') {
       if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
       if (request.method === 'POST') {
-        const h = url.pathname === '/open' ? onOpen(request, env) : onAppFeedback(request, env, ctx);
+        const h = url.pathname === '/open' ? onOpen(request, env)
+          : url.pathname === '/ping' ? onPing(request, env) : onAppFeedback(request, env, ctx);
         return h.catch(() => new Response('err', { status: 500, headers: CORS }));
       }
     }
