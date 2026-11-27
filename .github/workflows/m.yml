@@ -8,8 +8,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          mkdir -p h
-          for n in tusk ember_spirit abyssal_underlord nevermore dark_willow pangolier hoodwink ringmaster kez windrunner lina rattletrap furion life_stealer doom_bringer invoker lone_druid undying; do curl -sf "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/$n.png" -o h/$n.png || echo fail $n; done
-          ls h | wc -l
+          mkdir -p r; i=0
+          while read u; do i=$((i+1)); n="r/$i_$(basename "$u")"; curl -sfL -A "Mozilla/5.0 DotaIntellect/1.0" "$u" -o "r/${i}_$(basename "$u")" && echo "ok $i $u" || echo "fail $u"; done < urls.txt
+          ls -la r
           git config user.name bot; git config user.email bot@x
-          git add h; git commit -m data; git push
+          git add r; git commit -m data; git push
