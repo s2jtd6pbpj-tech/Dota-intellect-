@@ -8,6 +8,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          for id in 8955247801 8955197224; do curl -sf "https://api.opendota.com/api/matches/$id" -o m_$id.json || echo fail $id; done
+          mkdir -p h
+          for n in tusk ember_spirit abyssal_underlord nevermore dark_willow pangolier hoodwink ringmaster kez windrunner lina rattletrap furion life_stealer doom_bringer invoker lone_druid undying; do curl -sf "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/$n.png" -o h/$n.png || echo fail $n; done
+          ls h | wc -l
           git config user.name bot; git config user.email bot@x
-          git add m_*.json; git commit -m data; git push
+          git add h; git commit -m data; git push
