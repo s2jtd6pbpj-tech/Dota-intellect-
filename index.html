@@ -612,9 +612,24 @@ function mmss(s){s=Math.max(0,s|0);return Math.floor(s/60)+":"+("0"+s%60).slice(
 function msg(t,c){out.innerHTML='<p style="color:'+(c||"#8d9ab3")+';margin:0">'+t+'</p>';}
 function rad(p){return p.isRadiant!=null?p.isRadiant:p.player_slot<128;}
 function team(ps,r){return ps.filter(function(p){return rad(p)===r;}).sort(function(a,b){return a.player_slot-b.player_slot;});}
+var TOP=["легенда нахуй","соло","короля не убить","яторогод","принц прибыл","zxc гуль","просто выебал"],BOT=["бездарь","фидер","удали игру пж","почти соло","жопонюх"];
+function num(v){return+v||0;}
+// Оценка игры: участие в убийствах, смерти, золото, опыт, урон по героям и строениям, лечение, варды.
+// Каждая метрика делится на максимум в матче, поэтому оценка сравнима между ролями.
+function rate(ps){var tk={};ps.forEach(function(p){var r=rad(p);tk[r]=(tk[r]||0)+num(p.kills);});
+ var M=function(f){var m=0;ps.forEach(function(p){m=Math.max(m,f(p));});return m||1;};
+ var F={gpm:function(p){return num(p.gold_per_min);},xpm:function(p){return num(p.xp_per_min);},dmg:function(p){return num(p.hero_damage);},tow:function(p){return num(p.tower_damage);},heal:function(p){return num(p.hero_healing);},wd:function(p){return(p.obs_log?p.obs_log.length:num(p.obs_placed))+(p.sen_log?p.sen_log.length:num(p.sen_placed))*0.5;},de:function(p){return num(p.deaths);}};
+ var mx={};for(var k in F)mx[k]=M(F[k]);
+ ps.forEach(function(p){var kp=(num(p.kills)+num(p.assists))/Math.max(1,tk[rad(p)]);
+  p._sc=2.2*Math.min(1,kp)+1.0*F.gpm(p)/mx.gpm+0.6*F.xpm(p)/mx.xpm+1.1*F.dmg(p)/mx.dmg+0.5*F.tow(p)/mx.tow+0.5*F.heal(p)/mx.heal+0.6*F.wd(p)/mx.wd-1.4*F.de(p)/mx.de+0.4*num(p.kills)/Math.max(1,num(p.deaths)+1)/3;});}
+// Случайная метка, но одна и та же для одного матча
+function pick(arr,seed){var x=Math.sin(seed)*10000;return arr[Math.floor((x-Math.floor(x))*arr.length)];}
 function row(p){var n=NM[p.hero_id]||("#"+p.hero_id),w=(p.obs_log||[]).length,se=(p.sen_log||[]).length;
- return'<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px solid #1c2740;font-size:13px">'+(window.HI?HI(p.hero_id):"")+'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>'+esc(n)+'</b> <span style="color:#7f8ba5">'+esc(p.personaname||"аноним")+'</span></span><span style="color:#cfd8ea;white-space:nowrap">'+p.kills+'/'+p.deaths+'/'+p.assists+'</span><span style="color:#7f8ba5;white-space:nowrap">'+(p.gold_per_min||0)+' GPM'+(w+se?' · 👁'+w+'/'+se:'')+'</span></div>';}
-function render(m){last=m;var ps=m.players||[],R=team(ps,true),Dr=team(ps,false),obs=0,sen=0;ps.forEach(function(p){obs+=(p.obs_log||[]).length;sen+=(p.sen_log||[]).length;});
+ var tag=p._top?'<div style="font-size:12px;color:#ffcf6a;font-weight:700;margin-top:1px">⭐ '+esc(p._top)+'</div>':p._bot?'<div style="font-size:12px;color:#ff7a7a;font-weight:700;margin-top:1px">💩 '+esc(p._bot)+'</div>':'';
+ return'<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px solid #1c2740;font-size:13px'+(p._top?';background:linear-gradient(90deg,rgba(255,207,106,.10),transparent 70%)':p._bot?';background:linear-gradient(90deg,rgba(255,90,90,.08),transparent 70%)':'')+'">'+(window.HI?HI(p.hero_id):"")+'<span style="flex:1;min-width:0"><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>'+esc(n)+'</b> <span style="color:#7f8ba5">'+esc(p.personaname||"аноним")+'</span></span>'+tag+'</span><span style="color:#cfd8ea;white-space:nowrap">'+p.kills+'/'+p.deaths+'/'+p.assists+'</span><span style="color:#7f8ba5;white-space:nowrap">'+(p.gold_per_min||0)+' GPM'+(w+se?' · 👁'+w+'/'+se:'')+'</span></div>';}
+function render(m){last=m;var ps=m.players||[],R=team(ps,true),Dr=team(ps,false),obs=0,sen=0;
+ ps.forEach(function(p){delete p._top;delete p._bot;});
+ if(ps.length>=4){rate(ps);var sd=num(m.match_id)%100000;var ut={},ub={};[R,Dr].forEach(function(T,ti){if(T.length<2)return;var o=T.slice().sort(function(a,b){return b._sc-a._sc;});var t=pick(TOP,sd+ti*7+1),w=pick(BOT,sd+ti*13+3),i=0;while(ut[t]&&i++<9)t=TOP[(TOP.indexOf(t)+1)%TOP.length];i=0;while(ub[w]&&i++<9)w=BOT[(BOT.indexOf(w)+1)%BOT.length];ut[t]=ub[w]=1;o[0]._top=t;o[o.length-1]._bot=w;});}ps.forEach(function(p){obs+=(p.obs_log||[]).length;sen+=(p.sen_log||[]).length;});
  var parsed=ps.some(function(p){return p.obs_log;});
  out.innerHTML='<div style="font-size:14px;margin-bottom:6px"><b style="color:'+(m.radiant_win?"#7ee08a":"#ff8a8a")+'">'+(m.radiant_win?"Победа Сил Света":"Победа Сил Тьмы")+'</b> · '+(m.radiant_score||0)+':'+(m.dire_score||0)+' · '+mmss(m.duration)+'</div>'
  +'<div style="font-size:12px;color:#7ee08a;margin-top:6px">Силы Света</div>'+R.map(row).join("")+'<div style="font-size:12px;color:#ff8a8a;margin-top:8px">Силы Тьмы</div>'+Dr.map(row).join("")
