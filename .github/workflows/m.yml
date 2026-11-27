@@ -1,0 +1,11 @@
+name: tmp-fetch-match
+on: push
+jobs:
+  f:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for id in 8955247801 8955197224; do curl -sf "https://api.opendota.com/api/matches/$id" -o m_$id.json || echo fail $id; done
+          ls -la
+      - uses: actions/upload-artifact@v4
+        with: {name: m, path: "m_*.json"}
